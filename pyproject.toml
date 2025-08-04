@@ -1,0 +1,71 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "multiplayer-opentelemetry"
+description = "Multiplayer OpenTelemetry Python API"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.8"
+authors = [
+    { name = "Multiplayer Authors", email = "hello@multiplayer.app" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: OpenTelemetry",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dependencies = [
+    "opentelemetry-exporter-otlp-proto-http >= 1.29.0",
+    "opentelemetry-exporter-otlp-proto-grpc >= 1.29.0",
+    "opentelemetry-api >= 1.29.0",
+    "opentelemetry-sdk >= 1.29.0"
+]
+[project.optional-dependencies]
+flask = [
+  "flask>=2.0",
+  "opentelemetry-instrumentation-flask>=0.43b0"
+]
+django = [
+  "django>=3.2"
+]
+dynamic = [
+    "version",
+]
+
+[project.entry-points."multiplayer.opentelemetry.exporter"]
+"grpc.trace" = "multiplayer.opentelemetry.exporter.grpc.trace_exporter:MultiplayerOTLPSpanExporter"
+"grpc.log" = "multiplayer.opentelemetry.exporter.grpc.log_exporter:MultiplayerOTLPLogExporter"
+"http.trace" = "multiplayer.opentelemetry.exporter.http.trace_exporter:MultiplayerOTLPSpanExporter"
+"http.log" = "multiplayer.opentelemetry.exporter.http.log_exporter:MultiplayerOTLPLogExporter"
+
+[project.entry-points."multiplayer.opentelemetry"]
+"id_generator" = "multiplayer.opentelemetry.trace.id_generator:SessionRecorderRandomIdGenerator"
+"traces_sampler" = "multiplayer.opentelemetry.trace.sampler:SessionRecorderTraceIdRatioBasedSampler"
+
+[project.urls]
+Homepage = "https://github.com/multiplayer-app/multiplayer-otlp-python"
+Repository = "https://github.com/multiplayer-app/multiplayer-otlp-python"
+
+[tool.hatch.version]
+path = "src/multiplayer/opentelemetry/version/__init__.py"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.sdist]
+include = ["src/multiplayer", "README.md", "LICENSE"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/multiplayer"]
