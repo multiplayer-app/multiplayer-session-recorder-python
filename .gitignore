@@ -19,3 +19,4 @@ share/python-wheels/
 MANIFEST
 newenv
 venv
+__pycache__

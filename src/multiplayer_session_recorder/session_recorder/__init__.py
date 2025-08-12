@@ -1,5 +1,3 @@
-# import asyncio
-# import random
 from typing import Any, Callable, Dict, Optional, Union
 from datetime import datetime
 from ..constants import MULTIPLAYER_TRACE_DEBUG_SESSION_SHORT_ID_LENGTH
@@ -24,8 +22,17 @@ class SessionRecorder:
         self._session_short_id_generator = generate_session_short_id
         self._resource_attributes: Dict[str, Any] = {}
 
-    def init(self, config: SessionRecorderConfig) -> None:
-        self._resource_attributes = config.resourceAttributes
+    def init(self, config: Union[SessionRecorderConfig, Dict[str, Any]] = None, **kwargs) -> None:
+        # Handle both dictionary config and keyword arguments
+        if config is not None:
+            # Convert dict to SessionRecorderConfig if needed
+            if isinstance(config, dict):
+                config = SessionRecorderConfig(**config)
+        else:
+            # Use keyword arguments
+            config = SessionRecorderConfig(**kwargs)
+            
+        self._resource_attributes = config.resourceAttributes or {}
         self._is_initialized = True
 
         if callable(config.generateSessionShortIdLocally):
@@ -35,7 +42,7 @@ class SessionRecorder:
             raise ValueError('Api key not provided')
 
         trace_id_generator = config.traceIdGenerator
-        if not trace_id_generator or not hasattr(trace_id_generator, 'set_session_id'):
+        if not hasattr(trace_id_generator, 'session_short_id'):
             raise ValueError('Incompatible trace id generator')
 
         self._trace_id_generator = trace_id_generator
@@ -96,7 +103,7 @@ class SessionRecorder:
                 raise RuntimeError('Invalid session type')
             await self._api_service.stop_session(self._short_session_id, session_data or {})
         finally:
-            self._trace_id_generator.set_session_id('')
+            self._trace_id_generator.set_session_id('', SessionType.PLAIN)
             self._short_session_id = False
             self._session_state = 'STOPPED'
 
@@ -111,7 +118,7 @@ class SessionRecorder:
             elif self._session_type == SessionType.PLAIN:
                 await self._api_service.cancel_session(self._short_session_id)
         finally:
-            self._trace_id_generator.set_session_id('')
+            self._trace_id_generator.set_session_id('', SessionType.PLAIN)
             self._short_session_id = False
             self._session_state = 'STOPPED'
 

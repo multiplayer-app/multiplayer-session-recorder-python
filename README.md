@@ -1,7 +1,7 @@
-Session Recorder python
+# Session Recorder python
 ============================================================================
 ##  Introduction
-The multiplayer-session-recorder module integrates OpenTelemetry with the Multiplayer platform to enable seamless trace collection and analysis. This library helps developers monitor, debug, and document application performance with detailed trace data. It supports flexible trace ID generation, sampling strategies.
+The `multiplayer-session-recorder` module integrates OpenTelemetry with the Multiplayer platform to enable seamless trace collection and analysis. This library helps developers monitor, debug, and document application performance with detailed trace data. It supports flexible trace ID generation, sampling strategies.
 
 ## Installation
 
@@ -11,61 +11,76 @@ To install the `multiplayer-session-recorder` module, use the following command:
 pip install multiplayer-session-recorder
 ```
 
+### Optional Dependencies
+
+The library supports optional dependencies for web framework integrations:
+
+```bash
+# For Django support
+pip install multiplayer-session-recorder[django]
+
+# For Flask support  
+pip install multiplayer-session-recorder[flask]
+
+# For both Django and Flask support
+pip install multiplayer-session-recorder[all]
+```
+
 ## Session Recorder Initialization
 
 ```python
-from multiplayer.session_recorder import session_recorder
+from multiplayer_session_recorder import session_recorder
 
-session_recorder.init({
-  apiKey: "{YOUR_API_KEY}",
-  traceIdGenerator: idGenerator,
-  resourceAttributes: {
-    serviceName: "{YOUR_APPLICATION_NAME}",
-    version: "{YOUR_APPLICATION_VERSION}",
-    environment: "{YOUR_APPLICATION_ENVIRONMENT}",
+session_recorder.init(
+  apiKey = "{YOUR_API_KEY}",
+  traceIdGenerator = idGenerator,
+  resourceAttributes = {
+    "serviceName": SERVICE_NAME,
+    "version": SERVICE_VERSION,
+    "environment": PLATFORM_ENV,
   }
-})
+)
 ```
 
 ## Example Usage
 
 ```python
-from multiplayer.session_recorder import session_recorder, SessionType
+from multiplayer_session_recorder import session_recorder, SessionType
 // Session recorder trace id generator which is used during opentelemetry initialization
 from .opentelemetry import id_generator
 
-session_recorder.init({
-  apiKey: "{YOUR_API_KEY}",
-  traceIdGenerator: id_generator,
-  resourceAttributes: {
-    serviceName: "{YOUR_APPLICATION_NAME}",
-    version: "{YOUR_APPLICATION_VERSION}",
-    environment: "{YOUR_APPLICATION_ENVIRONMENT}",
+session_recorder.init(
+  apiKey = "{YOUR_API_KEY}",
+  traceIdGenerator = idGenerator,
+  resourceAttributes = {
+    "serviceName": SERVICE_NAME,
+    "version": SERVICE_VERSION,
+    "environment": PLATFORM_ENV,
   }
-})
+)
 
-// ...
+# ...
 
-session_recorder.start(
+await session_recorder.start(
     SessionType.PLAIN,
     {
-      name: 'This is test session',
+      name: "This is test session",
       sessionAttributes: {
-        accountId: '687e2c0d3ec8ef6053e9dc97',
-        accountName: 'Acme Corporation'
+        accountId: "687e2c0d3ec8ef6053e9dc97",
+        accountName: "Acme Corporation"
       }
     }
   )
 
-  // do something here
+  # do something here
 
-  session_recorder.stop()
+await session_recorder.stop()
 ```
 
 ## Session Recorder trace Id generator
 
 ```python
-from multiplayer.session_recorder import SessionRecorderTraceIdRatioBasedSampler
+from multiplayer_session_recorder import SessionRecorderTraceIdRatioBasedSampler
 
 sampler = SessionRecorderTraceIdRatioBasedSampler(rate = 1/2)
 ```
@@ -73,61 +88,75 @@ sampler = SessionRecorderTraceIdRatioBasedSampler(rate = 1/2)
 ## Session Recorder trace id ratio based sampler
 
 ```python
-from multiplayer.session_recorder import SessionRecorderRandomIdGenerator
+from multiplayer_session_recorder import SessionRecorderRandomIdGenerator
 
 id_generator = SessionRecorderRandomIdGenerator(autoDocTracesRatio = 1/1000)
 ```
 
-## Django http payload recorder middleware
+## Django HTTP Payload Recorder Middleware
+
+First, install Django support:
+```bash
+pip install multiplayer-session-recorder[django]
+```
+
+Then use the middleware in your Django settings:
 
 ```python
-from multiplayer.session_recorder import DjangoOtelHttpPayloadRecorderMiddleware
+from multiplayer_session_recorder import create_django_middleware
 
-DjangoOtelHttpPayloadRecorderMiddleware({
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Add the payload recorder middleware
+    create_django_middleware({
+        "captureBody": True,
+        "captureHeaders": True,
+        "maxPayloadSizeBytes": 10000,
+        "isMaskBodyEnabled": True,
+        "maskBodyFieldsList": ["password", "token"],
+        "isMaskHeadersEnabled": True,
+        "maskHeadersList": ["authorization"],
+    }),
+]
+```
+
+## Flask HTTP Payload Recorder Middleware
+
+First, install Flask support:
+```bash
+pip install multiplayer-session-recorder[flask]
+```
+
+Then use the middleware in your Flask application:
+
+```python
+from flask import Flask
+from multiplayer_session_recorder import create_flask_middleware
+
+app = Flask(__name__)
+
+# Create middleware functions
+before_request, after_request = create_flask_middleware({
     "captureBody": True,
     "captureHeaders": True,
     "maxPayloadSizeBytes": 10000,
     "isMaskBodyEnabled": True,
-    "maskBodyFieldsList": ["password", "token"],
+    "maskBodyFieldsList": ["password", "secret"],
     "isMaskHeadersEnabled": True,
     "maskHeadersList": ["authorization"],
 })
 
-```
+# Register the middleware
+app.before_request(before_request)
+app.after_request(after_request)
 
-## Flask http payload recorder middleware
-
-```python
-from flask import Flask
-from multiplayer.session_recorder import FlaskOtelHttpPayloadRecorderMiddleware
-
-app = Flask(__name__)
-
-# Add middleware BEFORE request handlers run
-@app.before_request
-def before_request():
-    FlaskOtelHttpPayloadRecorderMiddleware.capture_request_body(
-        maxPayloadSizeBytes=10000,
-        captureBody=True,
-        captureHeaders=True,
-        isMaskBodyEnabled=True,
-        maskBodyFieldsList=["password", "secret"],
-        isMaskHeadersEnabled=True,
-        maskHeadersList=["authorization"],
-    )
-
-# Add middleware AFTER request finishes
-@app.after_request
-def after_request(response):
-    FlaskOtelHttpPayloadRecorderMiddleware.capture_response_body(
-        response,
-        maxPayloadSizeBytes=10000,
-        captureBody=True,
-        captureHeaders=True,
-        isMaskBodyEnabled=True,
-        maskBodyFieldsList=["token"],
-        isMaskHeadersEnabled=True,
-        maskHeadersList=["set-cookie"],
-    )
-    return response
+@app.route('/')
+def hello():
+    return 'Hello, World!'
 ```

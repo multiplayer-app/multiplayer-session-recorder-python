@@ -1,19 +1,34 @@
 from ..types.middleware_config import HttpMiddlewareConfig
 from ..sdk.mask import mask as default_mask, sensitive_fields, sensitive_headers
 from ..sdk.truncate import truncate
-from ..constants import ATTR_MULTIPLAYER_HTTP_REQUEST_BODY, ATTR_MULTIPLAYER_HTTP_REQUEST_HEADERS, ATTR_MULTIPLAYER_HTTP_RESPONSE_BODY, ATTR_MULTIPLAYER_HTTP_RESPONSE_HEADERS
+from ..constants import (
+    ATTR_MULTIPLAYER_HTTP_REQUEST_BODY,
+    ATTR_MULTIPLAYER_HTTP_REQUEST_HEADERS,
+    ATTR_MULTIPLAYER_HTTP_RESPONSE_BODY,
+    ATTR_MULTIPLAYER_HTTP_RESPONSE_HEADERS
+)
 
 import json
-from django.utils.deprecation import MiddlewareMixin
+from typing import Optional
 from opentelemetry import trace
 
+try:
+    from django.utils.deprecation import MiddlewareMixin
+except ImportError:
+    raise ImportError(
+        "Django is required for Django middleware. "
+        "Install it with: pip install multiplayer-session-recorder[django]"
+    )
+
 class DjangoOtelHttpPayloadRecorderMiddleware(MiddlewareMixin):
-    def __init__(self, get_response=None, config: HttpMiddlewareConfig = HttpMiddlewareConfig()):
+    def __init__(self, get_response=None, config: Optional[HttpMiddlewareConfig] = None):
+        if config is None:
+            config = HttpMiddlewareConfig()
         self.get_response = get_response
         self.config = config
 
-        body_fields = self.config.maskBodyFieldsList or sensitive_fields
-        header_fields = self.config.maskHeadersList or sensitive_headers
+        body_fields = self.config.maskBodyFieldsList if self.config.maskBodyFieldsList else sensitive_fields
+        header_fields = self.config.maskHeadersList if self.config.maskHeadersList else sensitive_headers
 
         if config.isMaskBodyEnabled:
             if config.maskBody:

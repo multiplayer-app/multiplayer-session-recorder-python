@@ -1,20 +1,29 @@
 from ..types.middleware_config import HttpMiddlewareConfig
 from ..sdk.mask import mask as default_mask, sensitive_fields, sensitive_headers
 from ..sdk.truncate import truncate
-from ..constants import ATTR_MULTIPLAYER_HTTP_REQUEST_BODY, ATTR_MULTIPLAYER_HTTP_REQUEST_HEADERS, ATTR_MULTIPLAYER_HTTP_RESPONSE_BODY, ATTR_MULTIPLAYER_HTTP_RESPONSE_HEADERS
-
+from ..constants import (
+    ATTR_MULTIPLAYER_HTTP_REQUEST_BODY,
+    ATTR_MULTIPLAYER_HTTP_REQUEST_HEADERS,
+    ATTR_MULTIPLAYER_HTTP_RESPONSE_BODY,
+    ATTR_MULTIPLAYER_HTTP_RESPONSE_HEADERS
+)
 
 try:
     from flask import request, g
 except ImportError:
-    flask = None
+    raise ImportError(
+        "Flask is required for Flask middleware. "
+        "Install it with: pip install multiplayer-session-recorder[flask]"
+    )
 
 from opentelemetry import trace
 import json
-from typing import Callable, Any
+from typing import Callable, Any, Optional
 
 
-def FlaskOtelHttpPayloadRecorderMiddleware(config: HttpMiddlewareConfig):
+def FlaskOtelHttpPayloadRecorderMiddleware(config: Optional[HttpMiddlewareConfig] = None):
+    if config is None:
+        config = HttpMiddlewareConfig()
     final_body_keys = (
         config.maskBodyFieldsList
         if isinstance(config.maskBodyFieldsList, list)

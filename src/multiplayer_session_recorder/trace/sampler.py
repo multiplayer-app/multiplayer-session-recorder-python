@@ -61,4 +61,4 @@ class SessionRecorderTraceIdRatioBasedSampler(Sampler):
         )
 
     def get_description(self) -> str:
-        return f"TraceIdRatioBased{{{self._rate}}}"
+        return f"SessionRecorderTraceIdRatioBased{{{self._rate}}}"

@@ -16,8 +16,8 @@ class HttpMiddlewareConfig:
     maskBody: Optional[Callable[[any, Span], any]] = None
     maskHeaders: Optional[Callable[[any, Span], any]] = None
 
-    maskBodyFieldsList: List[str] = []
-    maskHeadersList: List[str] = []
+    maskBodyFieldsList: List[str] = field(default_factory=list)
+    maskHeadersList: List[str] = field(default_factory=list)
 
     headersToInclude: Optional[List[str]] = None
     headersToExclude: Optional[List[str]] = None
