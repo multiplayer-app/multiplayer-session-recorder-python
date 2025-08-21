@@ -32,7 +32,7 @@ def init_opentelemetry():
         SERVICE_VERSION_ATTR: SERVICE_VERSION,
         DEPLOYMENT_ENVIRONMENT: PLATFORM_ENV
     })
-        
+
     id_generator = SessionRecorderRandomIdGenerator()
     sampler = SessionRecorderTraceIdRatioBasedSampler(rate = MULTIPLAYER_OTLP_SPAN_RATIO)
 
