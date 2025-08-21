@@ -45,6 +45,17 @@ class DjangoOtelHttpPayloadRecorderMiddleware(MiddlewareMixin):
     def __call__(self, request):
         span = trace.get_current_span()
 
+        # Check if we have a valid span
+        if not hasattr(span, 'set_attribute') or not span.is_recording():
+            # If no valid span, create our own span for this request
+            tracer = trace.get_tracer(__name__)
+            with tracer.start_as_current_span(f"django_request_{request.method}_{request.path}") as span:
+                return self._process_request(request, span)
+        else:
+            return self._process_request(request, span)
+
+    def _process_request(self, request, span):
+
         # --- Capture request body ---
         if self.config.captureBody:
             try:
@@ -78,7 +89,13 @@ class DjangoOtelHttpPayloadRecorderMiddleware(MiddlewareMixin):
 
                 if self.header_mask_fn:
                     masked = self.header_mask_fn({k: v}, span)
-                    v = masked.get(k, v)
+                    # The mask function returns a string, so we need to parse it back to get the masked value
+                    try:
+                        masked_dict = json.loads(masked)
+                        v = masked_dict.get(k, v)
+                    except (json.JSONDecodeError, AttributeError):
+                        # If parsing fails, use the original value
+                        v = v
 
                 captured_headers[k] = v
 
@@ -120,7 +137,13 @@ class DjangoOtelHttpPayloadRecorderMiddleware(MiddlewareMixin):
 
                 if self.header_mask_fn:
                     masked = self.header_mask_fn({k: v}, span)
-                    v = masked.get(k, v)
+                    # The mask function returns a string, so we need to parse it back to get the masked value
+                    try:
+                        masked_dict = json.loads(masked)
+                        v = masked_dict.get(k, v)
+                    except (json.JSONDecodeError, AttributeError):
+                        # If parsing fails, use the original value
+                        v = v
 
                 captured_resp_headers[k] = v
 

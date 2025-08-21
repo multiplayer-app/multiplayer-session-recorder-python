@@ -20,3 +20,4 @@ MANIFEST
 newenv
 venv
 __pycache__
+*.sqlite3

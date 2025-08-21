@@ -20,7 +20,6 @@ from opentelemetry import trace
 import json
 from typing import Callable, Any, Optional
 
-
 def FlaskOtelHttpPayloadRecorderMiddleware(config: Optional[HttpMiddlewareConfig] = None):
     if config is None:
         config = HttpMiddlewareConfig()
@@ -52,16 +51,42 @@ def FlaskOtelHttpPayloadRecorderMiddleware(config: Optional[HttpMiddlewareConfig
             header_mask_fn = default_mask(final_header_keys)
 
     def before_request():
+        # Get the current span to store request data
+        span = trace.get_current_span()
+        
+        # Check if we have a valid span
+        if not hasattr(span, 'set_attribute'):
+            return
+        
         if config.captureBody:
-            g.request_body = request.get_data(as_text=True)
+            # Capture request body without consuming the stream
+            try:
+                # Try with copy=True first, fallback to without if not supported
+                try:
+                    request_body = request.get_data(as_text=True, copy=True)
+                except TypeError:
+                    # Fallback for older Flask versions that don't support copy=True
+                    request_body = request.get_data(as_text=True)
+                # Store in Flask g object for this request (thread-safe)
+                g._request_body = request_body
+            except Exception:
+                g._request_body = ""
         if config.captureHeaders:
-            g.request_headers = dict(request.headers)
+            request_headers = dict(request.headers)
+            # Store in Flask g object for this request (thread-safe)
+            g._request_headers = request_headers
 
     def after_request(response):
         span = trace.get_current_span()
 
+        # Check if we have a valid span
+        if not hasattr(span, 'set_attribute'):
+            should_store_in_span = False
+        else:
+            should_store_in_span = True
+
         if config.captureBody:
-            body_raw = getattr(g, "request_body", "")
+            body_raw = getattr(g, "_request_body", "") or ""
             try:
                 parsed = json.loads(body_raw)
                 masked_body = (
@@ -70,27 +95,52 @@ def FlaskOtelHttpPayloadRecorderMiddleware(config: Optional[HttpMiddlewareConfig
             except Exception:
                 masked_body = truncate(body_raw, config.maxPayloadSizeBytes)
 
-            span.set_attribute(
-                ATTR_MULTIPLAYER_HTTP_REQUEST_BODY,
-                truncate(masked_body, config.maxPayloadSizeBytes)
-            )
-
-            try:
-                resp_raw = response.get_data(as_text=True)
-                parsed_resp = json.loads(resp_raw)
-                masked_resp = (
-                    body_mask_fn(parsed_resp, span) if body_mask_fn else json.dumps(parsed_resp)
+            if should_store_in_span:
+                span.set_attribute(
+                    ATTR_MULTIPLAYER_HTTP_REQUEST_BODY,
+                    truncate(masked_body, config.maxPayloadSizeBytes)
                 )
-            except Exception:
-                masked_resp = truncate(resp_raw, config.maxPayloadSizeBytes)
 
-            span.set_attribute(
-                ATTR_MULTIPLAYER_HTTP_RESPONSE_BODY,
-                truncate(masked_resp, config.maxPayloadSizeBytes)
-            )
+        if config.captureBody:
+            try:
+                if hasattr(response, 'get_data'):
+                    try:
+                        try:
+                            resp_data = response.get_data(copy=True)
+                        except TypeError:
+                            resp_data = response.get_data()
+                        resp_raw = resp_data.decode('utf-8') if isinstance(resp_data, bytes) else str(resp_data)
+                    except Exception as e:
+                        resp_raw = ""
+                elif hasattr(response, 'data'):
+                    resp_raw = str(response.data)
+                elif hasattr(response, 'response'):
+                    resp_raw = str(response.response)
+                else:
+                    resp_raw = str(response)
+                
+                # Try to parse as JSON for masking
+                try:
+                    parsed_resp = json.loads(resp_raw)
+                    masked_resp = (
+                        body_mask_fn(parsed_resp, span) if body_mask_fn else json.dumps(parsed_resp)
+                    )
+                except json.JSONDecodeError:
+                    # If not JSON, use the raw text
+                    masked_resp = resp_raw
+                    
+            except Exception as e:
+                masked_resp = ""
+
+            if should_store_in_span:
+                span.set_attribute(
+                    ATTR_MULTIPLAYER_HTTP_RESPONSE_BODY,
+                    truncate(masked_resp, config.maxPayloadSizeBytes)
+                )
 
         if config.captureHeaders:
-            req_headers = getattr(g, "request_headers", {})
+            req_headers = getattr(g, "_request_headers", {}) or {}
+                
             filtered_req_headers = {}
 
             for k, v in req_headers.items():
@@ -103,14 +153,19 @@ def FlaskOtelHttpPayloadRecorderMiddleware(config: Optional[HttpMiddlewareConfig
 
                 if header_mask_fn:
                     masked = header_mask_fn({k: v}, span)
-                    v = masked.get(k, v)
+                    try:
+                        masked_dict = json.loads(masked)
+                        v = masked_dict.get(k, v)
+                    except (json.JSONDecodeError, AttributeError):
+                        v = v
 
                 filtered_req_headers[k] = v
 
-            span.set_attribute(
-                ATTR_MULTIPLAYER_HTTP_REQUEST_HEADERS,
-                str(filtered_req_headers)
-            )
+            if should_store_in_span:
+                span.set_attribute(
+                    ATTR_MULTIPLAYER_HTTP_REQUEST_HEADERS,
+                    str(filtered_req_headers)
+                )
 
         if config.captureHeaders:
             filtered_resp_headers = {}
@@ -125,14 +180,19 @@ def FlaskOtelHttpPayloadRecorderMiddleware(config: Optional[HttpMiddlewareConfig
 
                 if header_mask_fn:
                     masked = header_mask_fn({k: v}, span)
-                    v = masked.get(k, v)
+                    try:
+                        masked_dict = json.loads(masked)
+                        v = masked_dict.get(k, v)
+                    except (json.JSONDecodeError, AttributeError):
+                        v = v
 
                 filtered_resp_headers[k] = v
 
-            span.set_attribute(
-                ATTR_MULTIPLAYER_HTTP_RESPONSE_HEADERS,
-                str(filtered_resp_headers)
-            )
+            if should_store_in_span:
+                span.set_attribute(
+                    ATTR_MULTIPLAYER_HTTP_RESPONSE_HEADERS,
+                    str(filtered_resp_headers)
+                )
 
         return response
 
