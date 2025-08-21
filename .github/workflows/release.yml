@@ -6,10 +6,11 @@ on:
       - "*"
 
 jobs:
-  set-version:
+  release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -47,21 +48,6 @@ jobs:
           git add src/version/__init__.py
           git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
           git push origin main
-
-  build-and-publish:
-    needs: set-version
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
 
       - name: Install build dependencies
         run: |
