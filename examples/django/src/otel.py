@@ -33,7 +33,7 @@ def init_opentelemetry():
     })
         
     id_generator = SessionRecorderRandomIdGenerator()
-    sampler = SessionRecorderTraceIdRatioBasedSampler(rate = 1)
+    sampler = SessionRecorderTraceIdRatioBasedSampler(rate = MULTIPLAYER_OTLP_SPAN_RATIO)
 
     traceExporter = OTLPSpanExporter(endpoint = OTLP_TRACES_ENDPOINT)
     logExporter = OTLPLogExporter(endpoint = OTLP_LOGS_ENDPOINT)

@@ -17,6 +17,7 @@ from config import (
     OTLP_TRACES_ENDPOINT,
     OTLP_LOGS_ENDPOINT,
     MULTIPLAYER_OTLP_KEY,
+    MULTIPLAYER_OTLP_SPAN_RATIO,
     SERVICE_NAME,
     SERVICE_VERSION,
     PLATFORM_ENV
@@ -25,9 +26,8 @@ from config import (
 id_generator = SessionRecorderRandomIdGenerator()
 
 def init_tracing():
-    sampler = SessionRecorderTraceIdRatioBasedSampler(rate = 1) # MULTIPLAYER_OTLP_SPAN_RATIO
+    sampler = SessionRecorderTraceIdRatioBasedSampler(rate = MULTIPLAYER_OTLP_SPAN_RATIO)
 
-    # Service name is required for most backends
     resource = Resource(attributes = {
         SERVICE_NAME_ATTR: SERVICE_NAME,
         SERVICE_VERSION_ATTR: SERVICE_VERSION,
@@ -41,7 +41,7 @@ def init_tracing():
     )
 
     traceExporter = OTLPSpanExporter(OTLP_TRACES_ENDPOINT, headers = {
-        "Authorization": f"Bearer {MULTIPLAYER_OTLP_KEY}"
+        "authorization": MULTIPLAYER_OTLP_KEY
     })
 
     processor = BatchSpanProcessor(traceExporter)
@@ -49,18 +49,14 @@ def init_tracing():
     trace.set_tracer_provider(traceProvider)
 
     logger_provider = LoggerProvider(
-        resource = Resource.create(
-            {
-                "service.name": SERVICE_NAME,
-            }
-        ),
+        resource = resource
     )
     set_logger_provider(logger_provider)
     
     logExporter = OTLPLogExporter(
         endpoint = OTLP_LOGS_ENDPOINT,
         headers = {
-            "Authorization": f"Bearer {MULTIPLAYER_OTLP_KEY}"
+            "authorization": MULTIPLAYER_OTLP_KEY
         }
     )
 
