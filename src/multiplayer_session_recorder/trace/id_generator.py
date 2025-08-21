@@ -2,7 +2,10 @@ import random
 from opentelemetry import trace
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from ..types.session_type import SessionType
-from ..constants import MULTIPLAYER_TRACE_DEBUG_PREFIX, MULTIPLAYER_TRACE_CONTINUOUS_DEBUG_PREFIX
+from ..constants import (
+    MULTIPLAYER_TRACE_DEBUG_PREFIX,
+    MULTIPLAYER_TRACE_CONTINUOUS_DEBUG_PREFIX
+)
 
 class SessionRecorderRandomIdGenerator(RandomIdGenerator):
     def __init__(self):

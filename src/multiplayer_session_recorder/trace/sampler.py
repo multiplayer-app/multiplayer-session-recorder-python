@@ -4,7 +4,10 @@ from opentelemetry.trace.span import TraceState
 from typing import Optional, Sequence
 from opentelemetry.trace import Link, SpanKind
 from opentelemetry.util.types import Attributes
-from ..constants import MULTIPLAYER_TRACE_DEBUG_PREFIX, MULTIPLAYER_TRACE_DOC_PREFIX
+from ..constants import (
+    MULTIPLAYER_TRACE_DEBUG_PREFIX,
+    MULTIPLAYER_TRACE_CONTINUOUS_DEBUG_PREFIX
+)
 
 class SessionRecorderTraceIdRatioBasedSampler(Sampler):
     """
@@ -48,7 +51,7 @@ class SessionRecorderTraceIdRatioBasedSampler(Sampler):
     ) -> "SamplingResult":
         decision = Decision.DROP
         trace_id_str = trace_id.__str__()
-        if trace_id_str.startswith(MULTIPLAYER_TRACE_DEBUG_PREFIX) or trace_id_str.startswith(MULTIPLAYER_TRACE_DOC_PREFIX):
+        if trace_id_str.startswith(MULTIPLAYER_TRACE_DEBUG_PREFIX) or trace_id_str.startswith(MULTIPLAYER_TRACE_CONTINUOUS_DEBUG_PREFIX):
             decision = Decision.RECORD_AND_SAMPLE
         if trace_id & self.TRACE_ID_LIMIT < self.bound:
             decision = Decision.RECORD_AND_SAMPLE

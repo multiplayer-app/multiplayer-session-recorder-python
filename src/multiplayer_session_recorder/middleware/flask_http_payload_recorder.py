@@ -5,7 +5,9 @@ from ..constants import (
     ATTR_MULTIPLAYER_HTTP_REQUEST_BODY,
     ATTR_MULTIPLAYER_HTTP_REQUEST_HEADERS,
     ATTR_MULTIPLAYER_HTTP_RESPONSE_BODY,
-    ATTR_MULTIPLAYER_HTTP_RESPONSE_HEADERS
+    ATTR_MULTIPLAYER_HTTP_RESPONSE_HEADERS,
+    MULTIPLAYER_TRACE_DEBUG_PREFIX,
+    MULTIPLAYER_TRACE_CONTINUOUS_DEBUG_PREFIX
 )
 
 try:
@@ -19,6 +21,21 @@ except ImportError:
 from opentelemetry import trace
 import json
 from typing import Callable, Any, Optional
+
+
+def _should_capture_payloads(span) -> bool:
+    if not hasattr(span, 'get_span_context'):
+        return False
+    
+    span_context = span.get_span_context()
+    if not span_context.is_valid:
+        return False
+    
+    trace_id = span_context.trace_id
+    trace_id_str = format(trace_id, '032x')  # Convert to 32-character hex string
+    
+    return (trace_id_str.startswith(MULTIPLAYER_TRACE_DEBUG_PREFIX) or 
+            trace_id_str.startswith(MULTIPLAYER_TRACE_CONTINUOUS_DEBUG_PREFIX))
 
 def FlaskOtelHttpPayloadRecorderMiddleware(config: Optional[HttpMiddlewareConfig] = None):
     if config is None:
@@ -54,8 +71,8 @@ def FlaskOtelHttpPayloadRecorderMiddleware(config: Optional[HttpMiddlewareConfig
         # Get the current span to store request data
         span = trace.get_current_span()
         
-        # Check if we have a valid span
-        if not hasattr(span, 'set_attribute'):
+        # Check if we have a valid span and should capture payloads
+        if not hasattr(span, 'set_attribute') or not _should_capture_payloads(span):
             return
         
         if config.captureBody:
@@ -79,11 +96,9 @@ def FlaskOtelHttpPayloadRecorderMiddleware(config: Optional[HttpMiddlewareConfig
     def after_request(response):
         span = trace.get_current_span()
 
-        # Check if we have a valid span
-        if not hasattr(span, 'set_attribute'):
-            should_store_in_span = False
-        else:
-            should_store_in_span = True
+        # Check if we have a valid span and should capture payloads
+        if not hasattr(span, 'set_attribute') or not _should_capture_payloads(span):
+            return response
 
         if config.captureBody:
             body_raw = getattr(g, "_request_body", "") or ""
@@ -95,11 +110,10 @@ def FlaskOtelHttpPayloadRecorderMiddleware(config: Optional[HttpMiddlewareConfig
             except Exception:
                 masked_body = truncate(body_raw, config.maxPayloadSizeBytes)
 
-            if should_store_in_span:
-                span.set_attribute(
-                    ATTR_MULTIPLAYER_HTTP_REQUEST_BODY,
-                    truncate(masked_body, config.maxPayloadSizeBytes)
-                )
+            span.set_attribute(
+                ATTR_MULTIPLAYER_HTTP_REQUEST_BODY,
+                truncate(masked_body, config.maxPayloadSizeBytes)
+            )
 
         if config.captureBody:
             try:
@@ -132,11 +146,10 @@ def FlaskOtelHttpPayloadRecorderMiddleware(config: Optional[HttpMiddlewareConfig
             except Exception as e:
                 masked_resp = ""
 
-            if should_store_in_span:
-                span.set_attribute(
-                    ATTR_MULTIPLAYER_HTTP_RESPONSE_BODY,
-                    truncate(masked_resp, config.maxPayloadSizeBytes)
-                )
+            span.set_attribute(
+                ATTR_MULTIPLAYER_HTTP_RESPONSE_BODY,
+                truncate(masked_resp, config.maxPayloadSizeBytes)
+            )
 
         if config.captureHeaders:
             req_headers = getattr(g, "_request_headers", {}) or {}
@@ -161,11 +174,10 @@ def FlaskOtelHttpPayloadRecorderMiddleware(config: Optional[HttpMiddlewareConfig
 
                 filtered_req_headers[k] = v
 
-            if should_store_in_span:
-                span.set_attribute(
-                    ATTR_MULTIPLAYER_HTTP_REQUEST_HEADERS,
-                    str(filtered_req_headers)
-                )
+            span.set_attribute(
+                ATTR_MULTIPLAYER_HTTP_REQUEST_HEADERS,
+                str(filtered_req_headers)
+            )
 
         if config.captureHeaders:
             filtered_resp_headers = {}
@@ -188,11 +200,10 @@ def FlaskOtelHttpPayloadRecorderMiddleware(config: Optional[HttpMiddlewareConfig
 
                 filtered_resp_headers[k] = v
 
-            if should_store_in_span:
-                span.set_attribute(
-                    ATTR_MULTIPLAYER_HTTP_RESPONSE_HEADERS,
-                    str(filtered_resp_headers)
-                )
+            span.set_attribute(
+                ATTR_MULTIPLAYER_HTTP_RESPONSE_HEADERS,
+                str(filtered_resp_headers)
+            )
 
         return response
 

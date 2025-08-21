@@ -5,12 +5,29 @@ from ..constants import (
     ATTR_MULTIPLAYER_HTTP_REQUEST_BODY,
     ATTR_MULTIPLAYER_HTTP_REQUEST_HEADERS,
     ATTR_MULTIPLAYER_HTTP_RESPONSE_BODY,
-    ATTR_MULTIPLAYER_HTTP_RESPONSE_HEADERS
+    ATTR_MULTIPLAYER_HTTP_RESPONSE_HEADERS,
+    MULTIPLAYER_TRACE_DEBUG_PREFIX,
+    MULTIPLAYER_TRACE_CONTINUOUS_DEBUG_PREFIX
 )
 
 import json
 from typing import Optional
 from opentelemetry import trace
+
+
+def _should_capture_payloads(span) -> bool:
+    if not hasattr(span, 'get_span_context'):
+        return False
+    
+    span_context = span.get_span_context()
+    if not span_context.is_valid:
+        return False
+    
+    trace_id = span_context.trace_id
+    trace_id_str = format(trace_id, '032x')  # Convert to 32-character hex string
+    
+    return (trace_id_str.startswith(MULTIPLAYER_TRACE_DEBUG_PREFIX) or 
+            trace_id_str.startswith(MULTIPLAYER_TRACE_CONTINUOUS_DEBUG_PREFIX))
 
 try:
     from django.utils.deprecation import MiddlewareMixin
@@ -45,14 +62,18 @@ class DjangoOtelHttpPayloadRecorderMiddleware(MiddlewareMixin):
     def __call__(self, request):
         span = trace.get_current_span()
 
-        # Check if we have a valid span
         if not hasattr(span, 'set_attribute') or not span.is_recording():
-            # If no valid span, create our own span for this request
             tracer = trace.get_tracer(__name__)
             with tracer.start_as_current_span(f"django_request_{request.method}_{request.path}") as span:
-                return self._process_request(request, span)
+                if _should_capture_payloads(span):
+                    return self._process_request(request, span)
+                else:
+                    return self.get_response(request)
         else:
-            return self._process_request(request, span)
+            if _should_capture_payloads(span):
+                return self._process_request(request, span)
+            else:
+                return self.get_response(request)
 
     def _process_request(self, request, span):
 
