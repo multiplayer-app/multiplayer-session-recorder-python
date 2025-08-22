@@ -1,9 +1,9 @@
 import os
-from typing import Optional, Dict, Any
+from typing import Optional
 from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter as BaseOTLPLogExporter
 
 from ...constants import MULTIPLAYER_OTEL_DEFAULT_LOGS_EXPORTER_GRPC_URL
-from ..helpers import filter_logs_by_trace_id, should_export_data
+from ..helpers import filter_logs_include_debug, should_export_data
 
 class OTLPLogExporter(BaseOTLPLogExporter):
     def __init__(
@@ -32,7 +32,7 @@ class OTLPLogExporter(BaseOTLPLogExporter):
         )
     
     def export(self, logs_data, **kwargs):
-        filtered_logs_data = filter_logs_by_trace_id(logs_data)
+        filtered_logs_data = filter_logs_include_debug(logs_data)
         
         if not should_export_data(filtered_logs_data, "logs"):
             return None

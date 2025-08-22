@@ -1,9 +1,8 @@
 import os
-from typing import Optional, Dict, Any
+from typing import Optional
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter as BaseOTLPSpanExporter
-
 from ...constants import MULTIPLAYER_OTEL_DEFAULT_TRACES_EXPORTER_HTTP_URL
-from .helpers import filter_spans_by_trace_id, should_export_data
+from .helpers import filter_spans_include_debug, should_export_data
 
 class OTLPSpanExporter(BaseOTLPSpanExporter):
     
@@ -33,7 +32,7 @@ class OTLPSpanExporter(BaseOTLPSpanExporter):
         )
     
     def export(self, spans_data, **kwargs):
-        filtered_spans_data = filter_spans_by_trace_id(spans_data)
+        filtered_spans_data = filter_spans_include_debug(spans_data)
         
         if not should_export_data(filtered_spans_data, "spans"):
             return None
