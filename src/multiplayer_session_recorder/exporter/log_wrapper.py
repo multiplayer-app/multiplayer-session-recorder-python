@@ -1,8 +1,8 @@
 from typing import Optional
 from opentelemetry.sdk.logs.export import LogExporter
-from .helpers import filter_logs_by_trace_id, should_export_data
+from .helpers import filter_logs_exclude_debug, should_export_data
 
-class MultiplayerOTLPLogExporterWrapper:
+class OTLPLogExporterWrapper:
     def __init__(self, exporter: LogExporter):
         self.exporter = exporter
     

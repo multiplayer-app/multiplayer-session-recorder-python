@@ -2,7 +2,7 @@ from typing import Optional
 from opentelemetry.sdk.trace.export import SpanExporter
 from .helpers import filter_spans_exclude_debug, should_export_data
 
-class MultiplayerOTLPSpanExporterWrapper:
+class OTLPSpanExporterWrapper:
     def __init__(self, exporter: SpanExporter):
         """
         Initialize the wrapper with an existing span exporter.
