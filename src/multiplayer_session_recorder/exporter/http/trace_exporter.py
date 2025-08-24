@@ -2,7 +2,7 @@ import os
 from typing import Optional
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter as BaseOTLPSpanExporter
 from ...constants import MULTIPLAYER_OTEL_DEFAULT_TRACES_EXPORTER_HTTP_URL
-from .helpers import filter_spans_include_debug, should_export_data
+from ..helpers import filter_spans_include_debug, should_export_data
 
 class OTLPSpanExporter(BaseOTLPSpanExporter):
     

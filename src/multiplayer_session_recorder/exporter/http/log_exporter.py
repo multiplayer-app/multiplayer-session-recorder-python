@@ -3,7 +3,7 @@ from typing import Optional
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter as BaseOTLPLogExporter
 
 from ...constants import MULTIPLAYER_OTEL_DEFAULT_LOGS_EXPORTER_HTTP_URL
-from .helpers import filter_logs_include_debug, should_export_data
+from ..helpers import filter_logs_include_debug, should_export_data
 
 class OTLPLogExporter(BaseOTLPLogExporter):
     def __init__(
