@@ -1,4 +1,4 @@
-from ...constants import (
+from ..constants import (
     MULTIPLAYER_TRACE_DEBUG_PREFIX,
     MULTIPLAYER_TRACE_CONTINUOUS_DEBUG_PREFIX
 )
