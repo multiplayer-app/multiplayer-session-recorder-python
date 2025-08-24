@@ -1,6 +1,11 @@
-from typing import Optional
-from opentelemetry.sdk.logs.export import LogExporter
+from typing import Optional, Protocol
 from .helpers import filter_logs_exclude_debug, should_export_data
+
+
+class LogExporter(Protocol):
+    """Protocol for log exporters that have an export method."""
+    def export(self, logs_data, **kwargs):
+        ...
 
 class OTLPLogExporterWrapper:
     def __init__(self, exporter: LogExporter):
