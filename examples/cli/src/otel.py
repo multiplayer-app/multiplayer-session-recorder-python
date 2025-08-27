@@ -40,9 +40,10 @@ def init_tracing():
         id_generator = id_generator
     )
 
-    traceExporter = OTLPSpanExporter(OTLP_TRACES_ENDPOINT, headers = {
-        "authorization": MULTIPLAYER_OTLP_KEY
-    })
+    traceExporter = OTLPSpanExporter(
+        endpoint = OTLP_TRACES_ENDPOINT,
+        headers = { "authorization": MULTIPLAYER_OTLP_KEY }
+    )
 
     processor = BatchSpanProcessor(traceExporter)
     traceProvider.add_span_processor(processor)
@@ -55,10 +56,7 @@ def init_tracing():
     
     logExporter = OTLPLogExporter(
         endpoint = OTLP_LOGS_ENDPOINT,
-        headers = {
-            "authorization": MULTIPLAYER_OTLP_KEY
-        }
+        headers = { "authorization": MULTIPLAYER_OTLP_KEY }
     )
-
 
     logger_provider.add_log_record_processor(BatchLogRecordProcessor(logExporter))

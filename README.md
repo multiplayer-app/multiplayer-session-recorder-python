@@ -1,4 +1,4 @@
-![Description](.github/header-python.png)
+![Description](./docs/img/header-python.png)
 
 <div align="center">
 <a href="https://github.com/multiplayer-app/multiplayer-session-recorder-python">
@@ -26,7 +26,7 @@
   </p>
 </div>
 
-# Multiplayer Session Recorder - Python
+# Multiplayer Python Full Stack Session Recorder
 
 ## Introduction
 
@@ -40,9 +40,8 @@ To install the `multiplayer-session-recorder` module, use the following command:
 pip install multiplayer-session-recorder
 ```
 
-### Optional Dependencies
 
-The library supports optional dependencies for web framework integrations:
+Library supports optional dependencies for web framework integrations:
 
 ```bash
 # For Django support
@@ -55,36 +54,25 @@ pip install multiplayer-session-recorder[flask]
 pip install multiplayer-session-recorder[all]
 ```
 
-## Session Recorder Initialization
+## Set up Session Recorder client
 
 ```python
-from multiplayer_session_recorder import session_recorder
-
-session_recorder.init(
-  apiKey = "{YOUR_API_KEY}",
-  traceIdGenerator = idGenerator,
-  resourceAttributes = {
-    "serviceName": SERVICE_NAME,
-    "version": SERVICE_VERSION,
-    "environment": PLATFORM_ENV,
-  }
+from multiplayer_session_recorder import (
+  session_recorder,
+  SessionType,
+  SessionRecorderRandomIdGenerator
 )
-```
-
-## Example Usage
-
-```python
-from multiplayer_session_recorder import session_recorder, SessionType
-// Session recorder trace id generator which is used during opentelemetry initialization
 from .opentelemetry import id_generator
 
+id_generator = SessionRecorderRandomIdGenerator()
+
 session_recorder.init(
-  apiKey = "{YOUR_API_KEY}",
+  apiKey = "{{YOUR_API_KEY}}",
   traceIdGenerator = idGenerator,
   resourceAttributes = {
-    "serviceName": SERVICE_NAME,
-    "version": SERVICE_VERSION,
-    "environment": PLATFORM_ENV,
+    "serviceName": "{{SERVICE_NAME}}",
+    "version": "{{SERVICE_VERSION}}",
+    "environment": "{{PLATFORM_ENV}}",
   }
 )
 
@@ -109,20 +97,87 @@ await session_recorder.stop()
 ## Session Recorder trace Id generator
 
 ```python
-from multiplayer_session_recorder import SessionRecorderTraceIdRatioBasedSampler
+from multiplayer_session_recorder import SessionRecorderRandomIdGenerator
 
-sampler = SessionRecorderTraceIdRatioBasedSampler(rate = 1/2)
+id_generator = SessionRecorderRandomIdGenerator()
 ```
 
 ## Session Recorder trace id ratio based sampler
 
 ```python
-from multiplayer_session_recorder import SessionRecorderRandomIdGenerator
+from multiplayer_session_recorder import SessionRecorderTraceIdRatioBasedSampler
 
-id_generator = SessionRecorderRandomIdGenerator(autoDocTracesRatio = 1/1000)
+sampler = SessionRecorderTraceIdRatioBasedSampler()
 ```
 
-## Django HTTP Payload Recorder Middleware
+
+
+## Setup backend
+
+### Setup opentelemetry data
+
+Use officials opentelemetry guidence from [here](https://opentelemetry.io/docs/languages/python) or [zero-code](https://opentelemetry.io/docs/zero-code/python/) approach
+
+### Send opentelemetry data to Multiplayer
+
+Opentelemetry data can be sent to Multiplayer's collector in few ways:
+
+### Option 1 (Direct Exporter):
+
+```python
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+  
+traceExporter = OTLPSpanExporter(
+  endpoint = "https://otlp.multiplayer.app/v1/traces",
+  headers = { "authorization": "{{MULTIPLAYER_OTLP_KEY}}" }
+)
+```
+
+or
+
+```python
+from multiplayer_session_recorder.exporter.http.trace_exporter import (
+    OTLPSpanExporter as SessionRecorderOTLPSpanExporter
+)
+
+traceExporter = SessionRecorderOTLPSpanExporter(
+    endpoint = "https://otlp.multiplayer.app/v1/traces", # optional
+    api_key = MULTIPLAYER_OTLP_KEY
+)
+```
+
+### Option 2 (Collector):
+
+Another option - send otlp data to [opentelemetry collector](https://github.com/multiplayer-app/multiplayer-otlp-collector).
+
+Use following examples to send data to collector
+
+```python
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
+traceExporter = OTLPSpanExporter(
+  endpoint = "http://{{OTLP_COLLECTOR_URL}}/v1/traces",
+  headers = { "authorization": "{{MULTIPLAYER_OTLP_KEY}}" }
+)
+```
+
+or
+
+```python
+from multiplayer_session_recorder.exporter.http.trace_exporter import (
+    OTLPSpanExporter as SessionRecorderOTLPSpanExporter
+)
+
+traceExporter = SessionRecorderOTLPSpanExporter(
+    endpoint = "http://{{OTLP_COLLECTOR_URL}}/v1/traces", # optional
+    api_key = MULTIPLAYER_OTLP_KEY
+)
+```
+
+## Add request/response payloads
+
+### Option 1 (middleware):
+### Django HTTP Payload Recorder Middleware
 
 First, install Django support:
 
@@ -136,13 +191,8 @@ Then use the middleware in your Django settings:
 from multiplayer_session_recorder import create_django_middleware
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # ...
+    'multiplayer_session_recorder.middleware.django_http_payload_recorder.DjangoOtelHttpPayloadRecorderMiddleware',
     # Add the payload recorder middleware
     create_django_middleware({
         "captureBody": True,
@@ -156,7 +206,7 @@ MIDDLEWARE = [
 ]
 ```
 
-## Flask HTTP Payload Recorder Middleware
+### Flask HTTP Payload Recorder Middleware
 
 First, install Flask support:
 
@@ -168,20 +218,25 @@ Then use the middleware in your Flask application:
 
 ```python
 from flask import Flask
-from multiplayer_session_recorder import create_flask_middleware
+from multiplayer_session_recorder.middleware.flask_http_payload_recorder import FlaskOtelHttpPayloadRecorderMiddleware
+from multiplayer_session_recorder.types.middleware_config import HttpMiddlewareConfig
 
 app = Flask(__name__)
 
 # Create middleware functions
-before_request, after_request = create_flask_middleware({
-    "captureBody": True,
-    "captureHeaders": True,
-    "maxPayloadSizeBytes": 10000,
-    "isMaskBodyEnabled": True,
-    "maskBodyFieldsList": ["password", "secret"],
-    "isMaskHeadersEnabled": True,
-    "maskHeadersList": ["authorization"],
-})
+middleware_config = HttpMiddlewareConfig(
+    captureBody=True,           # Capture request/response bodies
+    captureHeaders=True,        # Capture request/response headers
+    maxPayloadSizeBytes=10000,  # Maximum payload size to capture
+    isMaskBodyEnabled=True,     # Enable masking of sensitive body fields
+    maskBodyFieldsList=["password", "token", "secret", "api_key"],  # Fields to mask
+    isMaskHeadersEnabled=True,  # Enable masking of sensitive headers
+    maskHeadersList=["authorization", "x-api-key", "cookie"],       # Headers to mask
+)
+
+# Create middleware functions using the direct middleware class
+before_request, after_request = FlaskOtelHttpPayloadRecorderMiddleware(middleware_config)
+
 
 # Register the middleware
 app.before_request(before_request)
@@ -191,3 +246,11 @@ app.after_request(after_request)
 def hello():
     return 'Hello, World!'
 ```
+
+### Option 2 (Envoy proxy):
+
+Deploy [Envoy Proxy](https://github.com/multiplayer-app/multiplayer-proxy) in front of your backend service.
+
+## License
+
+MIT — see [LICENSE](./LICENSE).

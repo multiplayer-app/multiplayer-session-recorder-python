@@ -35,8 +35,14 @@ def init_opentelemetry():
     id_generator = SessionRecorderRandomIdGenerator()
     sampler = SessionRecorderTraceIdRatioBasedSampler(rate = MULTIPLAYER_OTLP_SPAN_RATIO)
 
-    traceExporter = OTLPSpanExporter(endpoint = OTLP_TRACES_ENDPOINT)
-    logExporter = OTLPLogExporter(endpoint = OTLP_LOGS_ENDPOINT)
+    traceExporter = OTLPSpanExporter(
+        endpoint = OTLP_TRACES_ENDPOINT,
+        headers = { "authorization": MULTIPLAYER_OTLP_KEY }
+    )
+    logExporter = OTLPLogExporter(
+        endpoint = OTLP_LOGS_ENDPOINT,
+        headers = { "authorization": MULTIPLAYER_OTLP_KEY }
+    )
 
     tracer_provider = TracerProvider(
         resource = resource,
@@ -59,7 +65,7 @@ def init_opentelemetry():
 def instrument_django():
     DjangoInstrumentor().instrument()
     print("Django app instrumented with OpenTelemetry")
-    
+
     # Test span creation to verify instrumentation is working
     tracer = trace.get_tracer(__name__)
     with tracer.start_as_current_span("test_span") as span:
