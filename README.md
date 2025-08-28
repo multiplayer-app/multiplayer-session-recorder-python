@@ -26,53 +26,218 @@
   </p>
 </div>
 
-# Multiplayer Python Full Stack Session Recorder
+# Multiplayer Full Stack Session Recorder
 
 ## Introduction
 
-The `multiplayer-session-recorder` module integrates OpenTelemetry with the Multiplayer platform to enable seamless trace collection and analysis. This library helps developers monitor, debug, and document application performance with detailed trace data. It supports flexible trace ID generation, sampling strategies.
+The Multiplayer Full Stack Session Recorder is a powerful tool that offers deep session replays with insights spanning frontend screens, platform traces, metrics, and logs. It helps your team pinpoint and resolve bugs faster by providing a complete picture of your backend system architecture. No more wasted hours combing through APM data; the Multiplayer Full Stack Session Recorder does it all in one place.
 
-## Installation
 
-To install the `multiplayer-session-recorder` module, use the following command:
+## Install
 
 ```bash
 pip install multiplayer-session-recorder
-```
 
-
-Library supports optional dependencies for web framework integrations:
-
-```bash
 # For Django support
 pip install multiplayer-session-recorder[django]
 
 # For Flask support
 pip install multiplayer-session-recorder[flask]
-
-# For both Django and Flask support
-pip install multiplayer-session-recorder[all]
 ```
 
-## Set up Session Recorder client
+## Set up backend services
+
+### Route traces and logs to Multiplayer
+
+Multiplayer Full Stack Session Recorder is built on top of OpenTelemetry.
+
+### New to OpenTelemetry?
+
+No problem. You can set it up in a few minutes. If your services don't already use OpenTelemetry, you'll first need to install the OpenTelemetry libraries. Detailed instructions for this can be found in the [OpenTelemetry documentation](https://opentelemetry.io/docs/).
+
+### Already using OpenTelemetry?
+
+You have two primary options for routing your data to Multiplayer:
+
+***Direct Exporter***: This option involves using the Multiplayer Exporter directly within your services. It's a great choice for new applications or startups because it's simple to set up and doesn't require any additional infrastructure. You can configure it to send all session recording data to Multiplayer while optionally sending a sampled subset of data to your existing observability platform.
+
+***OpenTelemetry Collector***: For large, scaled platforms, we recommend using an OpenTelemetry Collector. This approach provides more flexibility by having your services send all telemetry to the collector, which then routes specific session recording data to Multiplayer and other data to your existing observability tools.
+
+
+### Option 1: Direct Exporter
+
+Send OpenTelemetry data from your services to Multiplayer and optionally other destinations (e.g., OpenTelemetry Collectors, observability platforms, etc.).
+
+This is the quickest way to get started, but consider using an OpenTelemetry Collector (see [Option 2](#option-2-opentelemetry-collector) below) if you're scalling or a have a large platform.
 
 ```python
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from multiplayer_session_recorder.exporter.span_wrapper import OTLPSpanExporterWrapper
+from multiplayer_session_recorder.exporter.log_wrapper import OTLPLogExporterWrapper
+from multiplayer_session_recorder.exporter.http.trace_exporter import (
+    OTLPSpanExporter as SessionRecorderOTLPSpanExporter
+)
+from multiplayer_session_recorder.exporter.http.log_exporter import (
+    OTLPLogExporter as SessionRecorderOTLPLogExporter
+)
+
+# set up Multiplayer exporters. Note: GRPC exporters are also available.
+# see: `SessionRecorderGrpcTraceExporter` and `SessionRecorderGrpcLogsExporter`
+traceExporter = SessionRecorderOTLPSpanExporter(
+    api_key = "MULTIPLAYER_OTLP_KEY" # note: replace with your Multiplayer OTLP key
+)
+logExporter = SessionRecorderOTLPLogExporter(
+    api_key = "MULTIPLAYER_OTLP_KEY" # note: replace with your Multiplayer OTLP key
+)
+
+# Multiplayer exporter wrappers filter out session recording atrtributes before passing to provided exporter
+traceExporter = SessionRecorderOTLPSpanExporter(
+  # add any OTLP trace exporter
+  OTLPSpanExporter(
+    # ...
+  )
+)
+
+logExporter = SessionRecorderOTLPLogExporter(
+  # add any OTLP log exporter
+  OTLPLogExporter(
+    # ...
+  )
+)
+```
+
+### Option 2: OpenTelemetry Collector
+
+If you're scalling or a have a large platform, consider running a dedicated collector. See the Multiplayer OpenTelemetry collector [repository](https://github.com/multiplayer-app/multiplayer-otlp-collector) which shows how to configure the standard OpenTelemetry Collector to send data to Multiplayer and optional other destinations.
+
+Add standard [OpenTelemetry code](https://opentelemetry.io/docs/languages/python/exporters/) to export OTLP data to your collector.
+
+See a basic example below:
+
+```python
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+
+traceExporter = OTLPSpanExporter(
+  endpoint = "http://<OTLP_COLLECTOR_URL>/v1/traces",
+)
+
+logExporter = OTLPLogExporter(
+  endpoint = "http://<OTLP_COLLECTOR_URL>/v1/logs",
+)
+```
+
+### Capturing request/response and header content
+
+In addition to sending traces and logs, you need to capture request and response content. We offer two solutions for this:
+
+***In-Service Code Capture:*** You can use our libraries to capture, serialize, and mask request/response and header content directly within your service code. This is an easy way to get started, especially for new projects, as it requires no extra components in your platform.
+
+***Multiplayer Proxy:*** Alternatively, you can run a [Multiplayer Proxy](https://github.com/multiplayer-app/multiplayer-proxy) to handle this outside of your services. This is ideal for large-scale applications and supports all languages, including those like Java that don't allow for in-service request/response hooks. The proxy can be deployed in various ways, such as an Ingress Proxy, a Sidecar Proxy, or an Embedded Proxy, to best fit your architecture.
+
+### Option 1: In-Service Code Capture
+
+The Multiplayer Session Recorder library provides utilities for capturing request, response and header content.
+
+For Django see example below:
+
+```python
+from multiplayer_session_recorder import create_django_middleware
+
+MIDDLEWARE = [
+    # ...
+    'multiplayer_session_recorder.middleware.django_http_payload_recorder.DjangoOtelHttpPayloadRecorderMiddleware',
+    # Add the payload recorder middleware
+    create_django_middleware({
+        "captureBody": True,
+        "captureHeaders": True,
+        "maxPayloadSizeBytes": 10000,
+        "isMaskBodyEnabled": True,
+        "maskBodyFieldsList": ["password", "token"],
+        "isMaskHeadersEnabled": True,
+        "maskHeadersList": ["authorization"],
+    }),
+]
+```
+
+For Django see example below:
+
+```python
+from flask import Flask
+from multiplayer_session_recorder.middleware.flask_http_payload_recorder import FlaskOtelHttpPayloadRecorderMiddleware
+from multiplayer_session_recorder.types.middleware_config import HttpMiddlewareConfig
+
+app = Flask(__name__)
+
+# Create middleware functions
+middleware_config = HttpMiddlewareConfig(
+  # capture request/response content
+  captureBody=True
+  # capture request/response headers
+  captureHeaders=True,
+  # set the maximum request/response content size (in bytes) that will be captured
+  # any request/response content greater than size will be not included in session recordings
+  maxPayloadSizeBytes=10000,
+  # enable masking of sensitive body fields
+  isMaskBodyEnabled=True,
+  # list of field names to mask in request/response content
+  maskBodyFieldsList=["password", "token", "secret", "api_key"],
+  # enable masking of sensitive headers
+  isMaskHeadersEnabled=True,
+  # list of headers to mask in request/response headers
+  maskHeadersList=["authorization", "x-api-key", "cookie"]
+)
+
+# create middleware functions using the direct middleware class
+before_request, after_request = FlaskOtelHttpPayloadRecorderMiddleware(middleware_config)
+
+# register the middleware
+app.before_request(before_request)
+app.after_request(after_request)
+
+@app.route('/')
+def hello():
+    return 'Hello, World!'
+```
+
+### Option 2: Multiplayer Proxy
+
+The Multiplayer Proxy enables capturing request/response and header content without changing service code. See instructions at the [Multiplayer Proxy repository](https://github.com/multiplayer-app/multiplayer-proxy).
+
+## Set up CLI app
+
+The Multiplayer Full Stack Session Recorder can be used inside the CLI apps.
+
+The [Multiplayer Time Travel Demo](https://github.com/multiplayer-app/multiplayer-time-travel-platform) includes an example [python CLI app](https://github.com/multiplayer-app/multiplayer-time-travel-platform/tree/main/clients/python-cli-app).
+
+See an additional example below.
+
+### Quick start
+
+Use the following code below to initialize and run the session recorder.
+
+```python
+# IMPORTANT: set up OpenTelemetry
+# for an example see ./examples/cli/src/otel.py
+# NOTE: for the code below to work, copy ./examples/cli/src/otel.py to ./otel.py
+import otel
+
+otel.init_tracing()
+
 from multiplayer_session_recorder import (
   session_recorder,
   SessionType,
   SessionRecorderRandomIdGenerator
 )
-from .opentelemetry import id_generator
-
-id_generator = SessionRecorderRandomIdGenerator()
 
 session_recorder.init(
-  apiKey = "{{YOUR_API_KEY}}",
-  traceIdGenerator = idGenerator,
+  apiKey = "MULTIPLAYER_OTLP_KEY", // note: replace with your Multiplayer OTLP key
+  traceIdGenerator = otel.id_generator,
   resourceAttributes = {
-    "serviceName": "{{SERVICE_NAME}}",
-    "version": "{{SERVICE_VERSION}}",
-    "environment": "{{PLATFORM_ENV}}",
+    "serviceName": "{YOUR_APPLICATION_NAME}"
+    "version": "{YOUR_APPLICATION_VERSION}",
+    "environment": "{YOUR_APPLICATION_ENVIRONMENT}",
   }
 )
 
@@ -94,162 +259,7 @@ await session_recorder.start(
 await session_recorder.stop()
 ```
 
-## Session Recorder trace Id generator
-
-```python
-from multiplayer_session_recorder import SessionRecorderRandomIdGenerator
-
-id_generator = SessionRecorderRandomIdGenerator()
-```
-
-## Session Recorder trace id ratio based sampler
-
-```python
-from multiplayer_session_recorder import SessionRecorderTraceIdRatioBasedSampler
-
-sampler = SessionRecorderTraceIdRatioBasedSampler()
-```
-
-
-
-## Setup backend
-
-### Setup opentelemetry data
-
-Use officials opentelemetry guidence from [here](https://opentelemetry.io/docs/languages/python) or [zero-code](https://opentelemetry.io/docs/zero-code/python/) approach
-
-### Send opentelemetry data to Multiplayer
-
-Opentelemetry data can be sent to Multiplayer's collector in few ways:
-
-### Option 1 (Direct Exporter):
-
-```python
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-  
-traceExporter = OTLPSpanExporter(
-  endpoint = "https://otlp.multiplayer.app/v1/traces",
-  headers = { "authorization": "{{MULTIPLAYER_OTLP_KEY}}" }
-)
-```
-
-or
-
-```python
-from multiplayer_session_recorder.exporter.http.trace_exporter import (
-    OTLPSpanExporter as SessionRecorderOTLPSpanExporter
-)
-
-traceExporter = SessionRecorderOTLPSpanExporter(
-    endpoint = "https://otlp.multiplayer.app/v1/traces", # optional
-    api_key = MULTIPLAYER_OTLP_KEY
-)
-```
-
-### Option 2 (Collector):
-
-Another option - send otlp data to [opentelemetry collector](https://github.com/multiplayer-app/multiplayer-otlp-collector).
-
-Use following examples to send data to collector
-
-```python
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-
-traceExporter = OTLPSpanExporter(
-  endpoint = "http://{{OTLP_COLLECTOR_URL}}/v1/traces",
-  headers = { "authorization": "{{MULTIPLAYER_OTLP_KEY}}" }
-)
-```
-
-or
-
-```python
-from multiplayer_session_recorder.exporter.http.trace_exporter import (
-    OTLPSpanExporter as SessionRecorderOTLPSpanExporter
-)
-
-traceExporter = SessionRecorderOTLPSpanExporter(
-    endpoint = "http://{{OTLP_COLLECTOR_URL}}/v1/traces", # optional
-    api_key = MULTIPLAYER_OTLP_KEY
-)
-```
-
-## Add request/response payloads
-
-### Option 1 (middleware):
-### Django HTTP Payload Recorder Middleware
-
-First, install Django support:
-
-```bash
-pip install multiplayer-session-recorder[django]
-```
-
-Then use the middleware in your Django settings:
-
-```python
-from multiplayer_session_recorder import create_django_middleware
-
-MIDDLEWARE = [
-    # ...
-    'multiplayer_session_recorder.middleware.django_http_payload_recorder.DjangoOtelHttpPayloadRecorderMiddleware',
-    # Add the payload recorder middleware
-    create_django_middleware({
-        "captureBody": True,
-        "captureHeaders": True,
-        "maxPayloadSizeBytes": 10000,
-        "isMaskBodyEnabled": True,
-        "maskBodyFieldsList": ["password", "token"],
-        "isMaskHeadersEnabled": True,
-        "maskHeadersList": ["authorization"],
-    }),
-]
-```
-
-### Flask HTTP Payload Recorder Middleware
-
-First, install Flask support:
-
-```bash
-pip install multiplayer-session-recorder[flask]
-```
-
-Then use the middleware in your Flask application:
-
-```python
-from flask import Flask
-from multiplayer_session_recorder.middleware.flask_http_payload_recorder import FlaskOtelHttpPayloadRecorderMiddleware
-from multiplayer_session_recorder.types.middleware_config import HttpMiddlewareConfig
-
-app = Flask(__name__)
-
-# Create middleware functions
-middleware_config = HttpMiddlewareConfig(
-    captureBody=True,           # Capture request/response bodies
-    captureHeaders=True,        # Capture request/response headers
-    maxPayloadSizeBytes=10000,  # Maximum payload size to capture
-    isMaskBodyEnabled=True,     # Enable masking of sensitive body fields
-    maskBodyFieldsList=["password", "token", "secret", "api_key"],  # Fields to mask
-    isMaskHeadersEnabled=True,  # Enable masking of sensitive headers
-    maskHeadersList=["authorization", "x-api-key", "cookie"],       # Headers to mask
-)
-
-# Create middleware functions using the direct middleware class
-before_request, after_request = FlaskOtelHttpPayloadRecorderMiddleware(middleware_config)
-
-
-# Register the middleware
-app.before_request(before_request)
-app.after_request(after_request)
-
-@app.route('/')
-def hello():
-    return 'Hello, World!'
-```
-
-### Option 2 (Envoy proxy):
-
-Deploy [Envoy Proxy](https://github.com/multiplayer-app/multiplayer-proxy) in front of your backend service.
+Replace the placeholders with your application’s version, name, environment, and API key.
 
 ## License
 
