@@ -217,6 +217,8 @@ See an additional example below.
 
 Use the following code below to initialize and run the session recorder.
 
+Example for Session Recorder initialization relies on [otel.py](./examples/cli/src/otel.py) file. Copy that file and put next to quick start code.
+
 ```python
 # IMPORTANT: set up OpenTelemetry
 # for an example see ./examples/cli/src/otel.py
