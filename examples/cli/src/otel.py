@@ -16,7 +16,7 @@ from multiplayer_session_recorder import (
 from config import (
     OTLP_TRACES_ENDPOINT,
     OTLP_LOGS_ENDPOINT,
-    MULTIPLAYER_OTLP_KEY,
+    MULTIPLAYER_API_KEY,
     MULTIPLAYER_OTLP_SPAN_RATIO,
     SERVICE_NAME,
     SERVICE_VERSION,
@@ -42,7 +42,7 @@ def init_tracing():
 
     traceExporter = OTLPSpanExporter(
         endpoint = OTLP_TRACES_ENDPOINT,
-        headers = { "authorization": MULTIPLAYER_OTLP_KEY }
+        headers = { "authorization": MULTIPLAYER_API_KEY }
     )
 
     processor = BatchSpanProcessor(traceExporter)
@@ -56,7 +56,7 @@ def init_tracing():
     
     logExporter = OTLPLogExporter(
         endpoint = OTLP_LOGS_ENDPOINT,
-        headers = { "authorization": MULTIPLAYER_OTLP_KEY }
+        headers = { "authorization": MULTIPLAYER_API_KEY }
     )
 
     logger_provider.add_log_record_processor(BatchLogRecordProcessor(logExporter))

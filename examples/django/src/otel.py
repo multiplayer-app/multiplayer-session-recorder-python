@@ -18,7 +18,7 @@ from opentelemetry.sdk.resources import (
 from config import (
     OTLP_TRACES_ENDPOINT,
     OTLP_LOGS_ENDPOINT,
-    MULTIPLAYER_OTLP_KEY,
+    MULTIPLAYER_API_KEY,
     MULTIPLAYER_OTLP_SPAN_RATIO,
     SERVICE_NAME,
     SERVICE_VERSION,
@@ -37,11 +37,11 @@ def init_opentelemetry():
 
     traceExporter = OTLPSpanExporter(
         endpoint = OTLP_TRACES_ENDPOINT,
-        headers = { "authorization": MULTIPLAYER_OTLP_KEY }
+        headers = { "authorization": MULTIPLAYER_API_KEY }
     )
     logExporter = OTLPLogExporter(
         endpoint = OTLP_LOGS_ENDPOINT,
-        headers = { "authorization": MULTIPLAYER_OTLP_KEY }
+        headers = { "authorization": MULTIPLAYER_API_KEY }
     )
 
     tracer_provider = TracerProvider(

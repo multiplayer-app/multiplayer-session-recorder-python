@@ -85,10 +85,10 @@ from multiplayer_session_recorder.exporter.http.log_exporter import (
 # set up Multiplayer exporters. Note: GRPC exporters are also available.
 # see: `SessionRecorderGrpcTraceExporter` and `SessionRecorderGrpcLogsExporter`
 traceExporter = SessionRecorderOTLPSpanExporter(
-    api_key = "MULTIPLAYER_OTLP_KEY" # note: replace with your Multiplayer OTLP key
+    api_key = "MULTIPLAYER_API_KEY" # note: replace with your Multiplayer API key
 )
 logExporter = SessionRecorderOTLPLogExporter(
-    api_key = "MULTIPLAYER_OTLP_KEY" # note: replace with your Multiplayer OTLP key
+    api_key = "MULTIPLAYER_API_KEY" # note: replace with your Multiplayer API key
 )
 
 # Multiplayer exporter wrappers filter out session recording atrtributes before passing to provided exporter
@@ -219,6 +219,8 @@ Use the following code below to initialize and run the session recorder.
 
 Example for Session Recorder initialization relies on [otel.py](./examples/cli/src/otel.py) file. Copy that file and put next to quick start code.
 
+### Initialize
+
 ```python
 # IMPORTANT: set up OpenTelemetry
 # for an example see ./examples/cli/src/otel.py
@@ -234,7 +236,7 @@ from multiplayer_session_recorder import (
 )
 
 session_recorder.init(
-  apiKey = "MULTIPLAYER_OTLP_KEY", // note: replace with your Multiplayer OTLP key
+  apiKey = "MULTIPLAYER_API_KEY", // note: replace with your Multiplayer API key
   traceIdGenerator = otel.id_generator,
   resourceAttributes = {
     "serviceName": "{YOUR_APPLICATION_NAME}"
@@ -242,24 +244,87 @@ session_recorder.init(
     "environment": "{YOUR_APPLICATION_ENVIRONMENT}",
   }
 )
+```
 
-# ...
+### Manual session recording
 
+Below is an example showing how to create a session recording in `MANUAL` mode. Manual session recordings stream and save all the data between calling `start` and `stop`.
+
+```python
 await session_recorder.start(
-    SessionType.PLAIN,
-    {
-      name: "This is test session",
-      sessionAttributes: {
-        accountId: "687e2c0d3ec8ef6053e9dc97",
-        accountName: "Acme Corporation"
-      }
+  SessionType.MANUAL,
+  {
+    name: "This is test session",
+    sessionAttributes: {
+      accountId: "1234",
+      accountName: "Acme Corporation"
     }
-  )
+  }
+)
 
-  # do something here
+# do something here
 
 await session_recorder.stop()
 ```
+
+### Continuous session recording
+
+Below is an example showing how to create a session in `CONTINUOUS` mode. Continuous session recordings **stream** all the data received between calling `start` and `stop` - 
+but only **save** a rolling window data (90 seconds by default) when:
+
+- an exception or error occurs;
+- when `save` is called; or
+- progrmmatically, when the auto-save attribute is attached to a span.
+
+
+```python
+await session_recorder.start(
+  SessionType.CONTINUOUS,
+  {
+    name: "This is test session",
+    sessionAttributes: {
+      accountId: "1234",
+      accountName: "Acme Corporation"
+    }
+  }
+)
+
+# do something here
+
+await session_recorder.save()
+
+# do something here
+
+await session_recorder.save()
+
+# do something here
+
+await session_recorder.stop()
+```
+
+Continuous session recordings may also be saved from within any service or component involved in a trace by adding the attributes below to a span:
+
+```python
+from opentelemetry import trace, context
+from multiplayer_session_recorder import import (
+  session_recorder,
+  SessionType
+)
+
+active_context = context.get_current()
+
+active_span = trace.get_current_span()
+
+active_span.set_attribute(
+  SessionRecorder.ATTR_MULTIPLAYER_CONTINUOUS_SESSION_AUTO_SAVE,
+  True
+)
+active_span.set_attribute(
+  SessionRecorder.ATTR_MULTIPLAYER_CONTINUOUS_SESSION_AUTO_SAVE_REASON,
+  "Some reason"
+)
+```
+
 
 Replace the placeholders with your application’s version, name, environment, and API key.
 

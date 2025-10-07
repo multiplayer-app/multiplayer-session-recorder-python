@@ -19,7 +19,7 @@ def test_session_recorder_init_with_example_config():
         from multiplayer_session_recorder.trace.id_generator import SessionRecorderRandomIdGenerator
         
         # Mock environment variables and constants
-        MULTIPLAYER_OTLP_KEY = "test-api-key-12345"
+        MULTIPLAYER_API_KEY = "test-api-key-12345"
         SERVICE_NAME = "test-service"
         SERVICE_VERSION = "1.0.0"
         PLATFORM_ENV = "development"
@@ -29,7 +29,7 @@ def test_session_recorder_init_with_example_config():
         
         # Test the init method with the exact example provided
         session_recorder.init(
-            apiKey=MULTIPLAYER_OTLP_KEY,
+            apiKey=MULTIPLAYER_API_KEY,
             traceIdGenerator=otel,
             resourceAttributes={
                 "serviceName": SERVICE_NAME,

@@ -9,7 +9,7 @@ from config import (
     VAULT_OF_TIME_SERVICE_URL,
     EPOCH_ENGINE_SERVICE_URL,
     MINDS_OF_TIME_SERVICE_URL,
-    MULTIPLAYER_OTLP_KEY,
+    MULTIPLAYER_API_KEY,
     SERVICE_NAME,
     SERVICE_VERSION,
     PLATFORM_ENV,
@@ -32,7 +32,7 @@ def get_data(name, base_url, endpoint):
 
 async def main():
     session_recorder.init(
-        apiKey = MULTIPLAYER_OTLP_KEY,
+        apiKey = MULTIPLAYER_API_KEY,
         traceIdGenerator = otel.id_generator,
         resourceAttributes = {
             "serviceName": SERVICE_NAME,

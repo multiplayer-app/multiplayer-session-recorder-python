@@ -19,7 +19,7 @@ from opentelemetry.sdk.resources import (
 from config import (
     OTLP_TRACES_ENDPOINT,
     OTLP_LOGS_ENDPOINT,
-    MULTIPLAYER_OTLP_KEY,
+    MULTIPLAYER_API_KEY,
     MULTIPLAYER_OTLP_SPAN_RATIO,
     SERVICE_NAME,
     SERVICE_VERSION,

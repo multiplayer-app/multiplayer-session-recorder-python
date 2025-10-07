@@ -13,7 +13,7 @@ class OTLPLogExporter(BaseOTLPLogExporter):
         **kwargs
     ):
         if api_key is None:
-            api_key = os.getenv("MULTIPLAYER_OTLP_KEY")
+            api_key = os.getenv("MULTIPLAYER_API_KEY")
 
         if endpoint is None:
             endpoint = MULTIPLAYER_OTEL_DEFAULT_LOGS_EXPORTER_HTTP_URL
